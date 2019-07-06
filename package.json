@@ -7,7 +7,7 @@
   "scripts": {
     "check-dts": "tsc lib/spresso-authy.d.ts",
     "lint": "./node_modules/eslint/bin/eslint.js .",
-    "test-lite": "mocha tests/*.js",
+    "test-lite": "nyc mocha tests/*.js",
     "test": "npm run test-lite && npm run check-dts && npm run lint"
   },
   "repository": {
@@ -40,6 +40,7 @@
     "eslint": "^6.0.1",
     "express": "^4.17.1",
     "mocha": "^6.1.4",
+    "nyc": "^14.1.1",
     "should": "^13.2.3",
     "supertest": "^4.0.2",
     "typescript": "^3.5.2"
