@@ -16,14 +16,14 @@ declare function expressBasicAuth(options: expressBasicAuth.BasicAuthMiddlewareO
 declare namespace expressBasicAuth {
     /**
      * Time safe string comparison function to protect against timing attacks.
-     * 
+     *
      * It is important to provide the arguments in the correct order, as the runtime
      * depends only on the `userInput` argument. Switching the order would expose the `secret`
      * to timing attacks.
-     * 
+     *
      * @param userInput The user input to be compared
      * @param secret The secret value the user input should be compared with
-     * 
+     *
      * @returns true if `userInput` matches `secret`, false if not
      */
     export function safeCompare(userInput: string, secret: string): boolean
@@ -34,7 +34,10 @@ declare namespace expressBasicAuth {
      *  - An authorizer function
      *  - An asynchronous authorizer function
      */
-    export type BasicAuthMiddlewareOptions = IUsersOptions | (IAuthorizerOptions | IAsyncAuthorizerOptions)
+    export type BasicAuthMiddlewareOptions = IUsersOptions | (
+        IAuthorizerOptions | IAsyncAuthorizerOptions |
+        IContextAwareAuthorizerOptions | IContextAwareAsyncAuthorizerOptions
+    )
 
     /**
      * express-basic-auth patches the request object to set an `auth` property that lets you retrieve the authed user.
@@ -51,9 +54,13 @@ declare namespace expressBasicAuth {
 
     type Authorizer = (username: string, password: string) => boolean
 
+    type ContextAwareAuthorizer = (req: Request, username: string, password: string) => boolean
+
     type AsyncAuthorizerCallback = (err: any, authed?: boolean) => void
 
     type AsyncAuthorizer = (username: string, password: string, callback: AsyncAuthorizerCallback) => void
+
+    type ContextAwareAsyncAuthorizer = (req: Request,  username: string, password: string, callback: AsyncAuthorizerCallback) => void
 
     type ValueOrFunction<T> = T | ((req: IBasicAuthedRequest) => T)
 
@@ -106,6 +113,11 @@ declare namespace expressBasicAuth {
         authorizeAsync?: false
 
         /**
+         * Set to true if you need to pass the request to provide more context to the authorizer function.
+         */
+        passRequest?: false
+
+        /**
          * You can pass your own authorizer function, to check the credentials however you want.
          * It will be called with a username and password and is expected to return true or false to indicate that the
          * credentials were approved or not:
@@ -123,11 +135,45 @@ declare namespace expressBasicAuth {
         authorizer: Authorizer
     }
 
+    interface IContextAwareAuthorizerOptions extends IBaseOptions {
+        /**
+         * Set to true if your authorizer is asynchronous.
+         */
+        authorizeAsync?: false
+
+        /**
+         * Set to true if you need to pass the request to provide more context to the authorizer function.
+         */
+        passRequest: true
+
+        /**
+         * You can pass your own authorizer function, to check the credentials however you want.
+         * It will be called with a username and password and is expected to return true or false to indicate that the
+         * credentials were approved or not:
+         *
+         * Example:
+         *     app.use(basicAuth({ authorizer }))
+         *
+         *     function myAuthorizer(username: string, password: string) {
+         *         return username.startsWith('A') && password.startsWith('secret');
+         *     }
+         *
+         * This will authorize all requests with credentials where the username begins with 'A' and the password begins
+         * with 'secret'. In an actual application you would likely look up some data instead ;-)
+         */
+        authorizer: ContextAwareAuthorizer
+    }
+
     interface IAsyncAuthorizerOptions extends IBaseOptions {
         /**
          * Set it to true to use a asynchronous authorizer.
          */
         authorizeAsync: true
+
+        /**
+         * Set to true if you need to pass the request to provide more context to the authorizer function.
+         */
+        passRequest?: false
 
         /**
          * You can pass an asynchronous authorizer. It will be passed a callback as the third parameter, which is
@@ -140,11 +186,40 @@ declare namespace expressBasicAuth {
          *     function authorizer(username, password, authorize) {
          *         if(username.startsWith('A') && password.startsWith('secret'))
          *             return authorize(null, true)
-         *         
+         *
          *         return authorize(null, false)
          *     }
          */
         authorizer: AsyncAuthorizer
+    }
+
+    interface IContextAwareAsyncAuthorizerOptions extends IBaseOptions {
+        /**
+         * Set it to true to use a asynchronous authorizer.
+         */
+        authorizeAsync: true
+
+        /**
+         * Set to true if you need to pass the request to provide more context to the authorizer function.
+         */
+        passRequest: true
+
+        /**
+         * You can pass an asynchronous authorizer. It will be passed a callback as the third parameter, which is
+         * expected to be called by standard node convention with an error and a boolean to indicate if the credentials
+         * have been approved or not.
+         *
+         * Example:
+         *     app.use(basicAuth({ authorizer, authorizeAsync: true }));
+         *
+         *     function authorizer(username, password, authorize) {
+         *         if(username.startsWith('A') && password.startsWith('secret'))
+         *             return authorize(null, true)
+         *
+         *         return authorize(null, false)
+         *     }
+         */
+        authorizer: ContextAwareAsyncAuthorizer
     }
 }
 
