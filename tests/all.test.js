@@ -1,3 +1,5 @@
+'use strict';
+
 require('should');
 
 const express = require('express');
@@ -37,6 +39,17 @@ const asyncAuth = basicAuth({
     authorizeAsync: true
 });
 
+const ctxAwareAuth = basicAuth({
+    authorizer: myCtxAwareAuthorizer,
+    passRequest: true
+});
+
+const ctxAwareAsyncAuth = basicAuth({
+    authorizer: myCtxAwareAsyncAuthorizer,
+    passRequest: true,
+    authorizeAsync: true
+});
+
 //Uses a custom response body function
 const customBodyAuth = basicAuth({
     users: { 'Foo': 'bar' },
@@ -67,45 +80,22 @@ const realmFunctionAuth = basicAuth({
     }
 });
 
-app.get('/static', staticUserAuth, function(req, res) {
+function ok_response (req, res) {
     res.status(200).send('You passed');
-});
+}
 
-app.get('/custom', customAuthorizerAuth, function(req, res) {
-    res.status(200).send('You passed');
-});
-
-app.get('/custom-compare', customCompareAuth, function(req, res) {
-    res.status(200).send('You passed');
-});
-
-app.get('/challenge', challengeAuth, function(req, res) {
-    res.status(200).send('You passed');
-});
-
-app.get('/async', asyncAuth, function(req, res) {
-    res.status(200).send('You passed');
-});
-
-app.get('/custombody', customBodyAuth, function(req, res) {
-    res.status(200).send('You passed');
-});
-
-app.get('/staticbody', staticBodyAuth, function(req, res) {
-    res.status(200).send('You passed');
-});
-
-app.get('/jsonbody', jsonBodyAuth, function(req, res) {
-    res.status(200).send('You passed');
-});
-
-app.get('/realm', realmAuth, function(req, res) {
-    res.status(200).send('You passed');
-});
-
-app.get('/realmfunction', realmFunctionAuth, function(req, res) {
-    res.status(200).send('You passed');
-});
+app.get('/static', staticUserAuth, ok_response);
+app.get('/custom', customAuthorizerAuth, ok_response);
+app.get('/custom-compare', customCompareAuth, ok_response);
+app.get('/challenge', challengeAuth, ok_response);
+app.get('/async', asyncAuth, ok_response);
+app.get('/ctx-aware/:ctx_param', ctxAwareAuth, ok_response);
+app.get('/ctx-aware-async/:ctx_param', ctxAwareAsyncAuth, ok_response);
+app.get('/custombody', customBodyAuth, ok_response);
+app.get('/staticbody', staticBodyAuth, ok_response);
+app.get('/jsonbody', jsonBodyAuth, ok_response);
+app.get('/realm', realmAuth, ok_response);
+app.get('/realmfunction', realmFunctionAuth, ok_response);
 
 //Custom authorizer checking if the username starts with 'A' and the password with 'secret'
 function myAuthorizer(username, password) {
@@ -114,11 +104,18 @@ function myAuthorizer(username, password) {
 
 //Same but asynchronous
 function myAsyncAuthorizer(username, password, cb) {
-    if(username.startsWith('A') && password.startsWith('secret')) {
-        return cb(null, true);
-    } else {
-        return cb(null, false);
-    }
+    return cb(null, myAuthorizer(username, password));
+}
+
+function myCtxAwareAuthorizer(req, username, password) {
+    return (
+        myAuthorizer(username, password)
+        && username === req.params['ctx_param']
+    );
+}
+
+function myCtxAwareAsyncAuthorizer(req, username, password, cb) {
+    return cb(null, myCtxAwareAuthorizer(req, username, password));
 }
 
 function myComparingAuthorizer(username, password) {
@@ -262,6 +259,72 @@ describe('express-basic-auth', function() {
             supertest(app)
                 .get(endpoint)
                 .auth('Aererer', 'secretiveStuff')
+                .expect(200, 'You passed', done);
+        });
+    });
+
+    describe('context aware authorizer', function () {
+        it('should reject on missing header', function(done) {
+            supertest(app)
+                .get('/ctx-aware/Admin')
+                .expect(401, done);
+        });
+
+        it('should reject on wrong credentials', function(done) {
+            supertest(app)
+                .get('/ctx-aware/Admin')
+                .auth('dude', 'stuff')
+                .expect(401, done);
+        });
+
+        it('should reject based on context', function(done) {
+            // Check the '/ctx-aware' route to see how context is captured, and
+            // myCtxAwareAuthorizer to see how context is processed.
+            supertest(app)
+                .get('/ctx-aware/Root')
+                .auth('Admin', 'secretiveStuff')
+                .expect(401, done);
+        });
+
+        it('should accept fitting credentials', function(done) {
+            // Check the '/ctx-aware' route to see how context is captured, and
+            // myCtxAwareAuthorizer to see how context is processed.
+            supertest(app)
+                .get('/ctx-aware/Admin')
+                .auth('Admin', 'secretiveStuff')
+                .expect(200, 'You passed', done);
+        });
+    });
+
+    describe('context aware async authorizer', function () {
+        it('should reject on missing header', function(done) {
+            supertest(app)
+                .get('/ctx-aware-async/Admin')
+                .expect(401, done);
+        });
+
+        it('should reject on wrong credentials', function(done) {
+            supertest(app)
+                .get('/ctx-aware-async/Admin')
+                .auth('dude', 'stuff')
+                .expect(401, done);
+        });
+
+        it('should reject based on context', function(done) {
+            // Check the '/ctx-aware' route to see how context is captured, and
+            // myCtxAwareAuthorizer to see how context is processed.
+            supertest(app)
+                .get('/ctx-aware-async/Root')
+                .auth('Admin', 'secretiveStuff')
+                .expect(401, done);
+        });
+
+        it('should accept fitting credentials', function(done) {
+            // Check the '/ctx-aware' route to see how context is captured, and
+            // myCtxAwareAuthorizer to see how context is processed.
+            supertest(app)
+                .get('/ctx-aware-async/Admin')
+                .auth('Admin', 'secretiveStuff')
                 .expect(200, 'You passed', done);
         });
     });

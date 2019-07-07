@@ -1,7 +1,9 @@
+'use strict';
+
 const express = require('express');
 const app = express();
 
-const basicAuth = require('./index');
+const basicAuth = require('../lib');
 
 /**
 * express-basic-auth
