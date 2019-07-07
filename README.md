@@ -118,6 +118,48 @@ function myAsyncAuthorizer(username, password, cb) {
 }
 ```
 
+### Context aware authorizers
+
+Sometimes, setting different authorizers for different paths in our router might be not enough. This can happen when the
+URLs identify "dynamic" resources (not web pages or API endpoints), where those resources are owned by different users
+and should be protected from other people.
+
+Typically these cases are not managed through basic HTTP authentication, but through slightly more refined schemes
+(cookies, sessions, etc), although it still make sense to add support for them, since it can be helpful to interact with
+certain API gateway mechanisms, like [Ambassador](https://www.getambassador.io).
+
+We do that by setting the `passRequest` option to `true`, and by accepting the request as a parameter in our authorizer
+function.
+
+```js
+app.use(basicAuth({
+    authorizer: myCtxAwareAuthorizer,
+    passRequest: true,
+}))
+
+function myCtxAwareAuthorizer(req, username, password) {
+    return username.startsWith('A') & password.startsWith('secret') & rc(req.params['rc_id']).isOwnedBy(username)
+}
+```
+
+This can be applied to async authorizers too.
+
+```js
+app.use(basicAuth({
+    authorizer: myCtxAwareAsyncAuthorizer,
+    authorizeAsync: true,
+    passRequest: true,
+}))
+
+function myCtxAwareAsyncAuthorizer(req, username, password, cb) {
+    if (username.startsWith('A') & password.startsWith('secret') & rc(req.params['rc_id']).isOwnedBy(username)) {
+        return cb(null, true)
+    } else {
+        return cb(null, false)
+    }
+}
+```
+
 ### Unauthorized Response Body
 
 Per default, the response body for unauthorized responses will be empty. It can
