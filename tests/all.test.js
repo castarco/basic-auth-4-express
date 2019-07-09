@@ -50,6 +50,11 @@ const ctxAwareAsyncAuth = basicAuth({
     authorizeAsync: true
 });
 
+const emptyCredentialsAuth = basicAuth({
+    authorizer: emptyCredentialsAuthorizer,
+    allowEmptyCredentials: true
+});
+
 //Uses a custom response body function
 const customBodyAuth = basicAuth({
     users: { 'Foo': 'bar' },
@@ -91,6 +96,7 @@ app.get('/challenge', challengeAuth, ok_response);
 app.get('/async', asyncAuth, ok_response);
 app.get('/ctx-aware/:ctx_param', ctxAwareAuth, ok_response);
 app.get('/ctx-aware-async/:ctx_param', ctxAwareAsyncAuth, ok_response);
+app.get('/empty-credentials', emptyCredentialsAuth, ok_response);
 app.get('/custombody', customBodyAuth, ok_response);
 app.get('/staticbody', staticBodyAuth, ok_response);
 app.get('/jsonbody', jsonBodyAuth, ok_response);
@@ -116,6 +122,10 @@ function myCtxAwareAuthorizer(req, username, password) {
 
 function myCtxAwareAsyncAuthorizer(req, username, password, cb) {
     return cb(null, myCtxAwareAuthorizer(req, username, password));
+}
+
+function emptyCredentialsAuthorizer(username, password) {
+    return username === null && password === null;
 }
 
 function myComparingAuthorizer(username, password) {
@@ -325,6 +335,14 @@ describe('express-basic-auth', function() {
             supertest(app)
                 .get('/ctx-aware-async/Admin')
                 .auth('Admin', 'secretiveStuff')
+                .expect(200, 'You passed', done);
+        });
+    });
+
+    describe('empty credentials authorizer', function () {
+        it('should accept requests without credentials', function (done) {
+            supertest(app)
+                .get('/empty-credentials')
                 .expect(200, 'You passed', done);
         });
     });
