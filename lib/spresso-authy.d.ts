@@ -75,6 +75,15 @@ declare namespace expressBasicAuth {
         challenge?: boolean
 
         /**
+         * By default (and as expected) this middleware will require the http credentials to be there, this option
+         * allows to bypass this sane expectation to obtain more flexibility. Be careful when using it (username and
+         * password will be set to null).
+         *
+         * @default false
+         */
+        allowEmptyCredentials?: false
+
+        /**
          * You can set the realm (the realm identifies the system to authenticate against and can be used by clients to
          * save credentials) of the challenge by passing a string or a function that gets passed the request and is
          * expected to return the realm.
